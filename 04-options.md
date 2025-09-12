@@ -2,6 +2,21 @@
 
 This document covers QuantLib's option pricing classes, payoffs, exercise styles, and exotic derivatives.
 
+## Table of Contents
+- [Core Option Components](#core-option-components)
+- [Payoff Classes](#payoff-classes)
+- [Exercise Styles](#exercise-styles)
+- [Vanilla Options](#vanilla-options)
+- [Barrier Options](#barrier-options)
+- [Asian Options](#asian-options)
+- [Lookback Options](#lookback-options)
+- [Basket Options](#basket-options)
+- [Cliquet Options](#cliquet-options)
+- [Swaptions](#swaptions)
+- [Cap and Floor Options](#cap-and-floor-options)
+- [Pricing Engines](#pricing-engines)
+- [Usage Examples](#usage-examples)
+
 ## Core Option Components
 
 ### Option Base Class
@@ -162,22 +177,106 @@ bermudan = ql.BermudanExercise(exercise_dates)
 
 ## Vanilla Options
 
-### VanillaOption
+## VanillaOption
 
-Standard European and American options.
+**Inherits from**: `OneAssetOption` → [`Option`](#core-option-components) → `Instrument` → `LazyObject` → `Observable`
+
+Standard European and American options on a single underlying asset.
+
+<details>
+<summary><b>Inheritance Details</b> (click to expand)</summary>
+
+- **From `OneAssetOption`**: Single asset option functionality, Greek calculations
+- **From [`Option`](#core-option-components)**: `payoff()`, `exercise()`, option type support
+- **From `Instrument`**: `NPV()`, `setPricingEngine()`, `isExpired()`, `errorEstimate()`
+- **From `LazyObject`**: `calculate()`, `freeze()`, `unfreeze()`
+- **From `Observable`**: Observer pattern for automatic recalculation
+
+</details>
+
+### Constructors
 
 ```python
-VanillaOption(payoff, exercise)
+# Primary constructor
+VanillaOption(
+    payoff,    # StrikedTypePayoff: payoff function (e.g., PlainVanillaPayoff)
+    exercise   # Exercise: exercise schedule (European, American, or Bermudan)
+)
+```
 
-# European call
+### Key Methods
+
+```python
+option = ql.VanillaOption(payoff, exercise)
+
+# Valuation (requires pricing engine)
+option.setPricingEngine(engine)     # Set the pricing engine
+option.NPV()                        # Real: net present value
+
+# Greeks (sensitivities)
+option.delta()                      # Real: price sensitivity to underlying
+option.gamma()                      # Real: delta sensitivity to underlying
+option.theta()                      # Real: price sensitivity to time (per day)
+option.vega()                       # Real: price sensitivity to volatility
+option.rho()                        # Real: price sensitivity to interest rate
+option.dividendRho()                # Real: price sensitivity to dividend yield
+
+# Inherited from Option
+option.payoff()                     # Payoff: get payoff function
+option.exercise()                   # Exercise: get exercise schedule
+
+# Other analytics
+option.impliedVolatility(           # Real: implied volatility from market price
+    targetValue,                    # Real: market price of option
+    process,                        # GeneralizedBlackScholesProcess
+    accuracy=1e-8,                  # Real: solution accuracy
+    maxEvaluations=100,             # Size: max iterations
+    minVol=0.0,                     # Real: minimum volatility bound
+    maxVol=4.0                      # Real: maximum volatility bound
+)
+```
+
+### Usage Examples
+
+```python
+import QuantLib as ql
+
+# Setup
+ql.Settings.instance().evaluationDate = ql.Date(15, 6, 2023)
+
+# European call option
 call_payoff = ql.PlainVanillaPayoff(ql.Option.Call, 100.0)
 european_exercise = ql.EuropeanExercise(ql.Date(15, 6, 2024))
 european_call = ql.VanillaOption(call_payoff, european_exercise)
 
-# American put
+# American put option
 put_payoff = ql.PlainVanillaPayoff(ql.Option.Put, 95.0)
 american_exercise = ql.AmericanExercise(ql.Date(15, 6, 2024))
 american_put = ql.VanillaOption(put_payoff, american_exercise)
+
+# Set up market data and pricing
+spot_handle = ql.QuoteHandle(ql.SimpleQuote(100.0))
+rate_handle = ql.YieldTermStructureHandle(ql.FlatForward(0, ql.TARGET(), 0.05, ql.Actual360()))
+vol_handle = ql.BlackVolTermStructureHandle(ql.BlackConstantVol(0, ql.TARGET(), 0.25, ql.Actual360()))
+dividend_handle = ql.YieldTermStructureHandle(ql.FlatForward(0, ql.TARGET(), 0.02, ql.Actual360()))
+
+process = ql.BlackScholesMertonProcess(spot_handle, dividend_handle, rate_handle, vol_handle)
+
+# Price European option
+european_engine = ql.AnalyticEuropeanEngine(process)
+european_call.setPricingEngine(european_engine)
+
+call_value = european_call.NPV()
+call_delta = european_call.delta()
+print(f"European Call: Value={call_value:.4f}, Delta={call_delta:.4f}")
+
+# Price American option (requires different engine)
+american_engine = ql.BinomialVanillaEngine(process, "crr", 100)
+american_put.setPricingEngine(american_engine)
+
+put_value = american_put.NPV()
+put_delta = american_put.delta()
+print(f"American Put: Value={put_value:.4f}, Delta={put_delta:.4f}")
 ```
 
 ### Complete European Option Example

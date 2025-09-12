@@ -2,20 +2,43 @@
 
 This document covers QuantLib's bond instruments, cash flows, and fixed income analytics.
 
+## Table of Contents
+- [Bond Base Class](#bond-base-class)
+- [ZeroCouponBond](#zerocouponbond)
+- [FixedRateBond](#fixedratebond)
+- [FloatingRateBond](#floatingratebond)
+- [CallableBond and PuttableBond](#callablebond-and-puttablebond)
+- [ConvertibleBond](#convertiblebond)
+- [Cash Flow Classes](#cash-flow-classes)
+- [Interest Rate Swaps](#interest-rate-swaps)
+- [Bond Pricing Engines](#bond-pricing-engines)
+- [Usage Examples](#usage-examples)
+
 ## Bond Base Class
+
+**Inherits from**: `Instrument` → `LazyObject` → `Observable`
 
 All bond instruments inherit from the `Bond` base class, which provides common functionality for pricing, yield calculations, and cash flow analysis.
 
-### Constructor
+### Constructors
 
 ```python
+# Constructor with explicit cash flows
 Bond(
-    settlementDays,
-    calendar,
-    faceAmount,
-    maturityDate,
-    issueDate,
-    cashflows
+    settlementDays,    # Natural: settlement delay in days
+    calendar,         # Calendar: payment calendar
+    faceAmount,       # Real: face/notional amount
+    maturityDate,     # Date: bond maturity
+    issueDate=Date(), # Date: issue date (optional)
+    cashflows=Leg()   # Leg: vector of cash flows (optional)
+)
+
+# Constructor with just cash flows
+Bond(
+    settlementDays,    # Natural: settlement delay in days
+    calendar,         # Calendar: payment calendar
+    issueDate=Date(), # Date: issue date (optional)
+    coupons=Leg()     # Leg: coupon cash flows
 )
 ```
 
@@ -111,38 +134,103 @@ zero_bond = ql.ZeroCouponBond(
 )
 ```
 
-### FixedRateBond
+## FixedRateBond
 
-Bond with fixed coupon payments.
+**Inherits from**: [`Bond`](#bond-base-class) → `Instrument` → `LazyObject` → `Observable`
+
+Bond with fixed coupon payments throughout its life.
+
+<details>
+<summary><b>Inheritance Details</b> (click to expand)</summary>
+
+- **From [`Bond`](#bond-base-class)**: `cleanPrice()`, `dirtyPrice()`, `bondYield()`, `accruedAmount()`, `duration()`, `convexity()`, `settlementDate()`, `maturityDate()`, `cashflows()`, etc.
+- **From `Instrument`**: `NPV()`, `setPricingEngine()`, `isExpired()`, `errorEstimate()`
+- **From `LazyObject`**: `calculate()`, `freeze()`, `unfreeze()`
+- **From `Observable`**: Observer pattern support for automatic recalculation
+
+</details>
+
+### Constructors
 
 ```python
+# Primary constructor - full specification
 FixedRateBond(
     settlementDays,        # Integer: settlement period in days
     faceAmount,           # Real: face/notional amount  
     schedule,             # Schedule: payment schedule
-    coupons,              # List[Rate]: coupon rates
-    paymentDayCounter,    # DayCounter: REQUIRED parameter for accrual
-    paymentConvention=ql.Following,           # Business day convention
-    redemption=100.0,                         # Redemption amount
-    issueDate=ql.Date(),                     # Issue date (null Date if not specified)
-    paymentCalendar=ql.Calendar(),           # Payment calendar
-    exCouponPeriod=ql.Period(),              # Ex-coupon period
-    exCouponCalendar=ql.Calendar(),          # Ex-coupon calendar
-    exCouponConvention=ql.Unadjusted,        # Ex-coupon convention
-    exCouponEndOfMonth=False                  # Ex-coupon end-of-month
+    coupons,              # List[Rate]: coupon rates (can vary by period)
+    paymentDayCounter,    # DayCounter: REQUIRED - day count for coupon accrual
+    paymentConvention=ql.Following,           # BusinessDayConvention: payment adjustment
+    redemption=100.0,                         # Real: redemption amount at maturity
+    issueDate=ql.Date(),                     # Date: bond issue date (null = not set)
+    paymentCalendar=ql.Calendar(),           # Calendar: payment calendar (null = schedule calendar)
+    exCouponPeriod=ql.Period(),              # Period: ex-coupon period
+    exCouponCalendar=ql.Calendar(),          # Calendar: ex-coupon calendar
+    exCouponConvention=ql.Unadjusted,        # BusinessDayConvention: ex-coupon adjustment
+    exCouponEndOfMonth=False                  # Boolean: ex-coupon end-of-month rule
+)
+```
+
+### Key Methods (inherited from Bond)
+
+```python
+bond = ql.FixedRateBond(...)
+
+# Pricing methods
+bond.cleanPrice()                    # Real: market price without accrued interest
+bond.dirtyPrice()                   # Real: price including accrued interest  
+bond.accruedAmount()                # Real: accrued interest at settlement
+bond.NPV()                          # Real: net present value (requires pricing engine)
+
+# Yield calculations
+bond.bondYield(                     # InterestRate: yield to maturity
+    price,                          # Real: clean price
+    dayCounter,                     # DayCounter: yield day count
+    compounding,                    # Compounding: yield compounding convention
+    frequency                       # Frequency: yield compounding frequency
 )
 
-# Example - 5-year bond with 4% coupon, semi-annual payments
+# Risk metrics  
+bond.duration()                     # Real: modified duration
+bond.convexity()                   # Real: convexity
+bond.duration(ytm, dayCounter, compounding, frequency)  # Duration at specific yield
+bond.convexity(ytm, dayCounter, compounding, frequency) # Convexity at specific yield
+
+# Bond properties
+bond.settlementDate()              # Date: settlement date for current evaluation date
+bond.maturityDate()               # Date: bond maturity
+bond.issueDate()                  # Date: bond issue date
+bond.faceAmount()                 # Real: face/par value  
+bond.cashflows()                  # Leg: vector of cash flows
+bond.notional(date=ql.Date())     # Real: notional at specific date
+```
+
+### FixedRateBond-Specific Methods
+
+```python
+# Additional methods specific to FixedRateBond
+bond.frequency()                   # Frequency: coupon payment frequency
+bond.dayCounter()                 # DayCounter: coupon day counter
+```
+
+### Usage Example
+
+```python
 import QuantLib as ql
 
+# Setup
+ql.Settings.instance().evaluationDate = ql.Date(15, 6, 2023)
+
+# Create payment schedule
 schedule = ql.MakeSchedule(
     effectiveDate=ql.Date(15, 6, 2023),
     terminationDate=ql.Date(15, 6, 2028),
-    tenor=ql.Period("6M"),
+    tenor=ql.Period("6M"),                    # Semi-annual payments
     calendar=ql.TARGET(),
     convention=ql.ModifiedFollowing
 )
 
+# Create bond
 fixed_bond = ql.FixedRateBond(
     settlementDays=3,
     faceAmount=100.0,
@@ -152,6 +240,14 @@ fixed_bond = ql.FixedRateBond(
     paymentConvention=ql.ModifiedFollowing,
     redemption=100.0
 )
+
+# Set pricing engine and get price
+yield_curve = ql.FlatForward(2, ql.TARGET(), 0.03, ql.Actual365Fixed())
+engine = ql.DiscountingBondEngine(ql.YieldTermStructureHandle(yield_curve))
+fixed_bond.setPricingEngine(engine)
+
+price = fixed_bond.cleanPrice()
+print(f"Bond price: {price:.3f}")
 ```
 
 #### Step-up/Step-down Bonds

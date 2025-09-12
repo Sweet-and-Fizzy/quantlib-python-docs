@@ -11,6 +11,14 @@ ql.Settings.instance().evaluationDate = ql.Date(15, 6, 2023)  # Set your "today"
 ```
 This global date is used by all QuantLib calculations. Many errors occur when this isn't set properly.
 
+## Table of Contents
+- [Date Class](#date-class)
+- [Period Class](#period-class)
+- [Calendar Classes](#calendar-classes)
+- [DayCounter Classes](#daycounter-classes)
+- [Schedule Class](#schedule-class)
+- [Usage Examples](#usage-examples)
+
 ## Date Class
 
 The `Date` class is QuantLib's fundamental date representation with optional intraday support.

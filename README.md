@@ -16,6 +16,15 @@ This documentation is based on **QuantLib 1.40.0** (development version) and the
 
 ## Documentation Structure
 
+Each document follows a consistent API reference style with:
+- **Table of Contents** for easy navigation
+- **Inheritance chains** showing parent classes
+- **Complete constructor listings** with all available signatures
+- **Method documentation** grouped by inheritance source
+- **Usage examples** showing practical implementation
+
+### Core Documentation Files
+
 - **[Date & Time](01-date-time.md)** - Date, Calendar, Schedule, Period, DayCounter classes
 - **[Interest Rates & Curves](02-interest-rates.md)** - Term structures, yield curves, interest rate models  
 - **[Bonds & Fixed Income](03-bonds.md)** - Bond instruments, cash flows, swaps
