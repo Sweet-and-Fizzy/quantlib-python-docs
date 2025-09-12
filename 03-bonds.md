@@ -155,7 +155,7 @@ Bond with fixed coupon payments throughout its life.
 ```python
 # Primary constructor - only first 5 parameters are required
 FixedRateBond(
-    settlementDays,                           # Integer: REQUIRED - settlement period in days
+    settlementDays,                          # Integer: REQUIRED - settlement period in days
     faceAmount,                              # Real: REQUIRED - face/notional amount  
     schedule,                                # Schedule: REQUIRED - payment schedule
     coupons,                                 # List[Rate]: REQUIRED - coupon rates (can vary by period)
@@ -172,28 +172,28 @@ FixedRateBond(
 
 # Minimal constructor example - only required parameters
 FixedRateBond(
-    settlementDays=2,
-    faceAmount=100.0,
-    schedule=my_schedule,          # See Schedule class documentation
-    coupons=[0.04],
-    paymentDayCounter=ql.ActualActual()
+    settlementDays=2,                        # Integer: settlement days
+    faceAmount=100.0,                        # Real: face amount
+    schedule=my_schedule,                    # Schedule: payment schedule (see Schedule class)
+    coupons=[0.04],                          # List[Rate]: coupon rates
+    paymentDayCounter=ql.ActualActual()      # DayCounter: day count convention
 )
 
 # Full constructor example - all parameters specified
 FixedRateBond(
-    settlementDays=3,
-    faceAmount=1000.0,
-    schedule=my_schedule,
-    coupons=[0.045],
-    paymentDayCounter=ql.ActualActual(ql.ActualActual.Bond),
-    paymentConvention=ql.ModifiedFollowing,
-    redemption=105.0,              # Premium redemption
-    issueDate=ql.Date(15, 6, 2023),
-    paymentCalendar=ql.TARGET(),
-    exCouponPeriod=ql.Period("5D"),
-    exCouponCalendar=ql.TARGET(),
-    exCouponConvention=ql.Following,
-    exCouponEndOfMonth=True
+    settlementDays=3,                        # Integer: settlement days
+    faceAmount=1000.0,                       # Real: face amount
+    schedule=my_schedule,                    # Schedule: payment schedule
+    coupons=[0.045],                         # List[Rate]: coupon rates
+    paymentDayCounter=ql.ActualActual(ql.ActualActual.Bond),  # DayCounter: day count convention
+    paymentConvention=ql.ModifiedFollowing,  # BusinessDayConvention: payment adjustment
+    redemption=105.0,                        # Real: premium redemption
+    issueDate=ql.Date(15, 6, 2023),          # Date: issue date
+    paymentCalendar=ql.TARGET(),             # Calendar: payment calendar
+    exCouponPeriod=ql.Period("5D"),          # Period: ex-coupon period
+    exCouponCalendar=ql.TARGET(),            # Calendar: ex-coupon calendar
+    exCouponConvention=ql.Following,         # BusinessDayConvention: ex-coupon adjustment
+    exCouponEndOfMonth=True                  # Boolean: ex-coupon end-of-month rule
 )
 ```
 
@@ -205,47 +205,47 @@ FixedRateBond(
 bond = ql.FixedRateBond(...)
 
 # Pricing methods (require pricing engine - see Bond Pricing Engines section)
-bond.cleanPrice()                    # Real: market price without accrued interest
-bond.dirtyPrice()                   # Real: price including accrued interest  
-bond.accruedAmount()                # Real: accrued interest at settlement
-bond.NPV()                          # Real: net present value (requires setPricingEngine())
+bond.cleanPrice()                            # Real: market price without accrued interest
+bond.dirtyPrice()                            # Real: price including accrued interest  
+bond.accruedAmount()                         # Real: accrued interest at settlement
+bond.NPV()                                   # Real: net present value (requires setPricingEngine())
 
 # Yield calculations
-bond.bondYield(                     # InterestRate: yield to maturity
-    price,                          # Real: clean price
-    dayCounter,                     # DayCounter: yield day count convention
-    compounding,                    # Compounding: Simple|Compounded|Continuous
-    frequency                       # Frequency: Annual|Semiannual|Quarterly|etc
+bond.bondYield(                              # InterestRate: yield to maturity
+    price,                                   # Real: clean price
+    dayCounter,                              # DayCounter: yield day count convention
+    compounding,                             # Compounding: Simple|Compounded|Continuous
+    frequency                                # Frequency: Annual|Semiannual|Quarterly|etc
 )
 
 # Alternative yield calculation (from current market price)
 bond.bondYield(
-    dayCounter,                     # DayCounter: yield calculation day count
-    compounding,                    # Compounding: compounding convention  
-    frequency                       # Frequency: compounding frequency
+    dayCounter,                              # DayCounter: yield calculation day count
+    compounding,                             # Compounding: compounding convention  
+    frequency                                # Frequency: compounding frequency
 )
 
 # Risk metrics  
-bond.duration()                     # Real: modified duration (from current price)
-bond.convexity()                   # Real: convexity (from current price)
-bond.duration(ytm, dayCounter, compounding, frequency)  # Duration at specific yield
-bond.convexity(ytm, dayCounter, compounding, frequency) # Convexity at specific yield
+bond.duration()                              # Real: modified duration (from current price)
+bond.convexity()                             # Real: convexity (from current price)
+bond.duration(ytm, dayCounter, compounding, frequency)    # Real: duration at specific yield
+bond.convexity(ytm, dayCounter, compounding, frequency)   # Real: convexity at specific yield
 
 # Bond properties
-bond.settlementDate()              # Date: settlement date for current evaluation date
-bond.settlementDate(trade_date)    # Date: settlement date for specific trade date
-bond.maturityDate()               # Date: bond maturity
-bond.issueDate()                  # Date: bond issue date
-bond.faceAmount()                 # Real: face/par value  
-bond.cashflows()                  # Leg: vector of cash flows (see Cash Flow Classes)
-bond.notional(date=ql.Date())     # Real: notional at specific date
-bond.calendar()                   # Calendar: bond's payment calendar
+bond.settlementDate()                        # Date: settlement date for current evaluation date
+bond.settlementDate(trade_date)              # Date: settlement date for specific trade date
+bond.maturityDate()                          # Date: bond maturity
+bond.issueDate()                             # Date: bond issue date
+bond.faceAmount()                            # Real: face/par value  
+bond.cashflows()                             # Leg: vector of cash flows (see Cash Flow Classes)
+bond.notional(date=ql.Date())                # Real: notional at specific date
+bond.calendar()                              # Calendar: bond's payment calendar
 
 # Cash flow analysis
-bond.nextCashFlowDate(date=ql.Date())      # Date: next coupon date after given date  
-bond.previousCashFlowDate(date=ql.Date())  # Date: previous coupon date before given date
-bond.nextCashFlowAmount(date=ql.Date())    # Real: next coupon amount
-bond.previousCashFlowAmount(date=ql.Date()) # Real: previous coupon amount
+bond.nextCashFlowDate(date=ql.Date())        # Date: next coupon date after given date  
+bond.previousCashFlowDate(date=ql.Date())    # Date: previous coupon date before given date
+bond.nextCashFlowAmount(date=ql.Date())      # Real: next coupon amount
+bond.previousCashFlowAmount(date=ql.Date())  # Real: previous coupon amount
 ```
 
 **See Also**: [`InterestRate`](02-interest-rates.md#interestrate-class), [`Compounding`](02-interest-rates.md#compounding-types), [`Frequency`](02-interest-rates.md#frequency-types), [Cash Flow Classes](#cash-flow-classes), [Bond Pricing Engines](#bond-pricing-engines)
