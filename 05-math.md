@@ -165,114 +165,381 @@ frobenius = ql.normFrobenius(mat)    # Frobenius norm
 
 ## Interpolation Classes
 
-QuantLib provides various interpolation methods for curve construction and data fitting.
+QuantLib provides various interpolation methods for curve construction and data fitting. See [interpolation-reference.md](interpolation-reference.md) for detailed guidance on choosing interpolation methods.
 
-### 1D Interpolation
+### Common Interface
 
-#### Linear Interpolation
+All 1D interpolation classes share a common interface:
 
 ```python
-# Data points
-x_values = [1.0, 2.0, 3.0, 4.0, 5.0]
-y_values = [1.0, 4.0, 9.0, 16.0, 25.0]
+# Constructor pattern
+interp = ql.InterpolationClass(x_array, y_array, [additional_params])
 
-# Create interpolation
-linear_interp = ql.LinearInterpolation(x_values, y_values)
-linear_interp.update()       # Finalize interpolation
+# Evaluation
+value = interp(x_point)
+value = interp(x_point, allowExtrapolation=True)
 
-# Interpolate at point
-x_point = 2.5
-y_interpolated = linear_interp(x_point)  # Should be ~6.5
-
-# Check bounds
-linear_interp.allowsExtrapolation()     # False by default
-linear_interp.enableExtrapolation()     # Allow extrapolation
+# Some interpolations also provide (where applicable):
+# derivative = interp.derivative(x_point, allowExtrapolation=False)
+# second_deriv = interp.secondDerivative(x_point, allowExtrapolation=False)
+# integral = interp.primitive(x_point, allowExtrapolation=False)
 ```
 
-#### Cubic Spline Interpolation
+### Linear and Flat Interpolations
+
+#### LinearInterpolation
+
+Linear interpolation between adjacent points.
 
 ```python
-# Natural cubic spline
-cubic_interp = ql.CubicInterpolation(
-    x_values, y_values,
-    CubicInterpolation.Spline,      # Spline type
-    True,                           # Monotonic
-    CubicInterpolation.SecondDerivative,  # Left boundary condition
-    0.0,                            # Left boundary value
-    CubicInterpolation.SecondDerivative,  # Right boundary condition  
-    0.0                             # Right boundary value
+LinearInterpolation(x, y)
+
+# Example
+x = ql.Array([1.0, 2.0, 3.0, 4.0, 5.0])
+y = ql.Array([1.0, 1.5, 1.8, 2.0, 2.1])
+interp = ql.LinearInterpolation(x, y)
+value = interp(2.5)
+```
+
+**Methods**: `operator()`
+
+#### LogLinearInterpolation
+
+Linear interpolation in log-space. Ensures positive values.
+
+```python
+LogLinearInterpolation(x, y)
+
+# Example
+times = ql.Array([0.5, 1.0, 2.0, 5.0, 10.0])
+discount_factors = ql.Array([0.99, 0.98, 0.95, 0.88, 0.75])
+interp = ql.LogLinearInterpolation(times, discount_factors)
+df_3y = interp(3.0)
+```
+
+**Methods**: `operator()`
+
+#### BackwardFlatInterpolation
+
+Step function using previous point's value.
+
+```python
+BackwardFlatInterpolation(x, y)
+
+# Example
+dates = ql.Array([1.0, 2.0, 3.0, 5.0])
+rates = ql.Array([0.02, 0.025, 0.03, 0.035])
+interp = ql.BackwardFlatInterpolation(dates, rates)
+rate = interp(2.5)  # Returns 0.025
+```
+
+**Methods**: `operator()`
+
+#### ForwardFlatInterpolation
+
+Step function using next point's value.
+
+```python
+ForwardFlatInterpolation(x, y)
+
+# Example
+dates = ql.Array([1.0, 2.0, 3.0, 5.0])
+forwards = ql.Array([0.02, 0.025, 0.03, 0.035])
+interp = ql.ForwardFlatInterpolation(dates, forwards)
+fwd = interp(2.5)  # Returns 0.03
+```
+
+**Methods**: `operator()`
+
+### Cubic Spline Interpolations
+
+#### CubicNaturalSpline
+
+Natural cubic spline with zero second derivatives at boundaries.
+
+```python
+CubicNaturalSpline(x, y)
+
+# Example
+x = ql.Array([0.0, 1.0, 2.0, 3.0, 4.0])
+y = ql.Array([1.0, 2.5, 3.0, 3.2, 3.5])
+spline = ql.CubicNaturalSpline(x, y)
+value = spline(1.5)
+slope = spline.derivative(1.5)
+curvature = spline.secondDerivative(1.5)
+area = spline.primitive(2.0)
+```
+
+**Methods**: `operator()`, `derivative()`, `secondDerivative()`, `primitive()`
+
+#### LogCubicNaturalSpline
+
+Natural cubic spline in log-space. Ensures positive values.
+
+```python
+LogCubicNaturalSpline(x, y)
+
+# Example
+times = ql.Array([0.5, 1.0, 2.0, 5.0, 10.0])
+vols = ql.Array([0.15, 0.18, 0.20, 0.22, 0.21])
+interp = ql.LogCubicNaturalSpline(times, vols)
+vol_3y = interp(3.0)
+vol_slope = interp.derivative(3.0)
+```
+
+**Methods**: `operator()`, `derivative()`, `secondDerivative()`, `primitive()`
+
+#### MonotonicCubicNaturalSpline
+
+Cubic spline with monotonicity preservation (Hyman filter).
+
+```python
+MonotonicCubicNaturalSpline(x, y)
+
+# Example
+times = ql.Array([0.25, 0.5, 1.0, 2.0, 5.0, 10.0])
+rates = ql.Array([0.01, 0.015, 0.02, 0.025, 0.03, 0.032])
+interp = ql.MonotonicCubicNaturalSpline(times, rates)
+rate = interp(3.0)
+```
+
+**Methods**: `operator()`, `derivative()`, `secondDerivative()`, `primitive()`
+
+#### MonotonicLogCubicNaturalSpline
+
+Monotonic cubic spline in log-space.
+
+```python
+MonotonicLogCubicNaturalSpline(x, y)
+
+# Example
+times = ql.Array([0.25, 0.5, 1.0, 2.0, 5.0, 10.0])
+discount_factors = ql.Array([0.998, 0.995, 0.98, 0.95, 0.87, 0.73])
+interp = ql.MonotonicLogCubicNaturalSpline(times, discount_factors)
+df = interp(3.0)
+```
+
+**Methods**: `operator()`, `derivative()`, `secondDerivative()`, `primitive()`
+
+### Kruger Cubic Interpolations
+
+Kruger's local cubic interpolation method.
+
+#### KrugerCubic
+
+```python
+KrugerCubic(x, y)
+```
+
+**Methods**: `operator()`, `derivative()`, `secondDerivative()`, `primitive()`
+
+#### KrugerLogCubic
+
+Kruger interpolation in log-space.
+
+```python
+KrugerLogCubic(x, y)
+```
+
+**Methods**: `operator()`, `derivative()`, `secondDerivative()`, `primitive()`
+
+### Fritsch-Butland Cubic Interpolations
+
+Monotonicity-preserving cubic interpolation (Fritsch & Butland, 1984).
+
+#### FritschButlandCubic
+
+```python
+FritschButlandCubic(x, y)
+
+# Example - recommended for monotonic curves
+x = ql.Array([1.0, 2.0, 3.0, 4.0, 5.0])
+y = ql.Array([1.0, 1.5, 2.2, 3.0, 3.5])
+interp = ql.FritschButlandCubic(x, y)
+value = interp(2.5)
+```
+
+**Methods**: `operator()`, `derivative()`, `secondDerivative()`, `primitive()`
+
+#### FritschButlandLogCubic
+
+Fritsch-Butland in log-space. Recommended for discount curves.
+
+```python
+FritschButlandLogCubic(x, y)
+
+# Example - excellent for yield curves
+maturities = ql.Array([0.25, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0])
+zero_rates = ql.Array([0.015, 0.018, 0.020, 0.022, 0.028, 0.032, 0.035])
+interp = ql.FritschButlandLogCubic(maturities, zero_rates)
+rate_7y = interp(7.0)
+```
+
+**Methods**: `operator()`, `derivative()`, `secondDerivative()`, `primitive()`
+
+### Parabolic Interpolations
+
+Piecewise parabolic (quadratic) interpolation.
+
+#### Parabolic
+
+```python
+Parabolic(x, y)
+```
+
+**Methods**: `operator()`, `derivative()`, `secondDerivative()`, `primitive()`
+
+#### LogParabolic
+
+```python
+LogParabolic(x, y)
+```
+
+**Methods**: `operator()`, `derivative()`, `secondDerivative()`, `primitive()`
+
+#### MonotonicParabolic
+
+```python
+MonotonicParabolic(x, y)
+```
+
+**Methods**: `operator()`, `derivative()`, `secondDerivative()`, `primitive()`
+
+#### MonotonicLogParabolic
+
+```python
+MonotonicLogParabolic(x, y)
+```
+
+**Methods**: `operator()`, `derivative()`, `secondDerivative()`, `primitive()`
+
+### Specialized Interpolations
+
+#### ConvexMonotoneInterpolation
+
+Hagan-West convex monotone method for yield curves. See [convex-monotone-interpolation.md](convex-monotone-interpolation.md) for details.
+
+```python
+ConvexMonotoneInterpolation(x, y, quadraticity=0.3, monotonicity=0.7, forcePositive=True)
+
+# Example
+times = ql.Array([0.5, 1.0, 2.0, 5.0, 10.0])
+forwards = ql.Array([0.02, 0.025, 0.028, 0.030, 0.032])
+interp = ql.ConvexMonotoneInterpolation(times, forwards)
+forward_3y = interp(3.0)
+
+# With custom parameters for more smoothing
+smooth_interp = ql.ConvexMonotoneInterpolation(
+    times, forwards,
+    quadraticity=0.5,
+    monotonicity=0.5,
+    forcePositive=True
 )
-cubic_interp.update()
-
-# Cubic interpolation types
-CubicInterpolation.Spline          # Cubic spline
-CubicInterpolation.SplineOM1       # Spline with first derivative matching
-CubicInterpolation.SplineOM2       # Spline with second derivative matching
-CubicInterpolation.Akima           # Akima spline
-CubicInterpolation.Fritsch_Butland # Fritsch-Butland (monotonic)
-CubicInterpolation.Parabolic       # Parabolic
-CubicInterpolation.FritschButland  # Monotonic cubic
-CubicInterpolation.Kruger          # Kruger spline
 ```
 
-#### Logarithmic Interpolation
+**Methods**: `operator()` only (no derivative or primitive in Python bindings)
+
+#### LagrangeInterpolation
+
+Polynomial interpolation using Lagrange form. Use with caution for large datasets (Runge's phenomenon).
 
 ```python
-# Log-linear interpolation (interpolates log(y) linearly)
-log_interp = ql.LogLinearInterpolation(x_values, y_values)
-log_interp.update()
+LagrangeInterpolation(x, y)
 
-# Log-cubic interpolation
-log_cubic = ql.LogCubicInterpolation(x_values, y_values)
-log_cubic.update()
+# Example - only for small datasets
+x = ql.Array([1.0, 2.0, 3.0, 4.0])
+y = ql.Array([1.0, 4.0, 9.0, 16.0])
+interp = ql.LagrangeInterpolation(x, y)
+value = interp(2.5)
 ```
 
-#### Specialized Interpolations
+**Methods**: `operator()` only
+
+#### ChebyshevInterpolation
+
+Polynomial interpolation using Chebyshev nodes or from function.
 
 ```python
-# Backward flat (step function)
-backward_flat = ql.BackwardFlatInterpolation(x_values, y_values)
+# From data array
+ChebyshevInterpolation(f_values, pointsType=ChebyshevInterpolation.SecondKind)
 
-# Forward flat
-forward_flat = ql.ForwardFlatInterpolation(x_values, y_values)
+# From function
+ChebyshevInterpolation(n, function, pointsType=ChebyshevInterpolation.SecondKind)
 
-# Convex monotone (for yield curves)
-convex_monotone = ql.ConvexMonotoneInterpolation(x_values, y_values)
+# Example
+import math
+def my_function(x):
+    return math.exp(-x * x)
 
-# SABR interpolation (for volatility)
-sabr_interp = ql.SABRInterpolation(
-    x_begin=x_values,
-    x_end=x_values,
-    y_begin=y_values,
-    expiry=1.0,      # Time to expiry
-    forward=100.0,   # Forward price
-    alpha=0.3,       # SABR alpha
-    beta=0.7,        # SABR beta  
-    nu=0.4,          # SABR nu
-    rho=-0.1         # SABR rho
-)
+n = 10
+interp = ql.ChebyshevInterpolation(n, my_function)
+value = interp(0.5)
+
+# Get Chebyshev nodes
+nodes = ql.ChebyshevInterpolation.nodes(10, ql.ChebyshevInterpolation.SecondKind)
 ```
 
-### 2D Interpolation
+**Point Types**: `ChebyshevInterpolation.FirstKind`, `ChebyshevInterpolation.SecondKind`
 
-For volatility surfaces and other two-dimensional data.
+**Methods**: `operator()`, static `nodes()`
+
+#### RichardsonExtrapolation
+
+Numerical extrapolation technique to improve convergence.
 
 ```python
-# Bilinear interpolation
-x_vals = [1.0, 2.0, 3.0]        # First dimension (e.g., strike)
-y_vals = [0.25, 0.5, 1.0]       # Second dimension (e.g., time)
-z_matrix = ql.Matrix(3, 3)      # 3x3 data matrix
+RichardsonExtrapolation(function, delta_h, n=None)
 
-# Fill z_matrix with data...
-bilinear = ql.BilinearInterpolation(x_vals, y_vals, z_matrix)
+# Example
+def trapezoid_rule(h):
+    # Your numerical method that depends on step size h
+    return some_approximation(h)
 
-# Interpolate at point
-x_point, y_point = 1.5, 0.75
-z_value = bilinear(x_point, y_point)
-
-# Bicubic interpolation
-bicubic = ql.BicubicSplineInterpolation(x_vals, y_vals, z_matrix)
+richardson = ql.RichardsonExtrapolation(trapezoid_rule, delta_h=0.5)
+improved_value = richardson(2.0)
 ```
+
+**Methods**: `operator()(t)`, `operator()(t, s)`
+
+### 2D Interpolations
+
+#### BilinearInterpolation
+
+Bilinear interpolation on rectangular grid.
+
+```python
+BilinearInterpolation(x_array, y_array, z_matrix)
+
+# Example
+strikes = ql.Array([90.0, 95.0, 100.0, 105.0, 110.0])
+expiries = ql.Array([0.25, 0.5, 1.0, 2.0])
+vols = ql.Matrix(4, 5)  # 4x5 matrix (rows=expiries, cols=strikes)
+# Fill vols with data...
+
+interp = ql.BilinearInterpolation(strikes, expiries, vols)
+vol = interp(102.0, 0.75)  # Interpolate at strike=102, expiry=0.75
+```
+
+**Methods**: `operator()(x, y, allowExtrapolation=False)`
+
+#### BicubicSpline
+
+Bicubic spline interpolation on rectangular grid.
+
+```python
+BicubicSpline(x_array, y_array, z_matrix)
+
+# Example
+strikes = ql.Array([90.0, 95.0, 100.0, 105.0, 110.0])
+expiries = ql.Array([0.25, 0.5, 1.0, 2.0])
+vols = ql.Matrix(4, 5)
+# Fill vols with data...
+
+interp = ql.BicubicSpline(strikes, expiries, vols)
+vol = interp(102.0, 0.75)
+```
+
+**Methods**: `operator()(x, y, allowExtrapolation=False)`
 
 ## Optimization and Root Finding
 
